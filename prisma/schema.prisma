@@ -1,0 +1,202 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ------------------------------------------------------
+// 0. Usuarios y autenticación (para el login de la web)
+// ------------------------------------------------------
+model User {
+  id              Int               @id @default(autoincrement())
+  name            String
+  email           String            @unique
+  password        String  
+  role            UserRole          @default(OPERATOR)
+  
+  // Campos de seguridad y auditoría
+  isActive        Boolean           @default(true) 
+  lastLogin       DateTime?
+  refreshToken    String?           @unique
+
+  movements       StockMovement[] 
+  reviewedTrends  TrendingProduct[] 
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+}
+
+enum UserRole {
+  ADMIN     // Ve todo, configura umbrales, gestiona proveedores
+  OPERATOR  // Solo registra entradas/salidas de stock
+}
+
+// ------------------------------------------------------
+// 1. Catálogo y Proveedores (Dimensiones)
+// ------------------------------------------------------
+model Supplier {
+  id        Int             @id @default(autoincrement())
+  name      String
+  email     String          // Crucial: aquí el RPA enviará la orden de compra
+  phone     String?
+  products  Product[]
+  orders    PurchaseOrder[]
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+}
+
+model Category {
+  id               Int               @id @default(autoincrement())
+  name             String
+  products         Product[]
+  trendingProducts TrendingProduct[]
+}
+
+model Product {
+  id               Int      @id @default(autoincrement())
+  sku              String   @unique
+  name             String
+  categoryId       Int
+  category         Category @relation(fields: [categoryId], references: [id])
+  supplierId       Int
+  supplier         Supplier @relation(fields: [supplierId], references: [id])
+
+  // Control de existencias (esto es lo que la web muestra en el dashboard)
+  currentStock     Int      @default(0)
+
+  // Parámetros dinámicos (actualizados por el microservicio de IA)
+  dynamicThreshold Int      @default(10) // Punto de reorden calculado por ML
+  optimalOrderQty  Int      @default(50) // Cantidad recomendada a pedir (EOQ)
+  leadTimeDays     Int      @default(3)  // Días promedio que tarda el proveedor
+
+  // Específico para alimentos: control de perecibilidad
+  isPerishable     Boolean  @default(false)
+  shelfLifeDays    Int?     // Vida útil estándar en días desde que entra al almacén
+
+  batches          Batch[]
+  movements        StockMovement[]
+  orderItems       OrderItem[]
+  originTrend      TrendingProduct?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+}
+
+// ------------------------------------------------------
+// 2. Lotes (clave para alimentos: control FEFO - vencimientos)
+// ------------------------------------------------------
+model Batch {
+  id             Int             @id @default(autoincrement())
+  productId      Int
+  product        Product         @relation(fields: [productId], references: [id])
+  batchNumber    String          // Código de lote del proveedor o interno
+  quantity       Int             // Cantidad restante disponible en este lote
+  expirationDate DateTime        // Fecha de vencimiento del lote
+  receivedAt     DateTime        @default(now())
+  status         BatchStatus     @default(ACTIVE)
+  movements      StockMovement[]
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  @@index([productId, expirationDate])
+}
+
+enum BatchStatus {
+  ACTIVE
+  EXPIRED
+  DEPLETED
+}
+
+// ------------------------------------------------------
+// 3. Histórico de movimientos (lo que llena el dashboard y entrena la IA)
+// ------------------------------------------------------
+model StockMovement {
+  id          Int             @id @default(autoincrement())
+  productId   Int
+  product     Product         @relation(fields: [productId], references: [id])
+  batchId     Int
+  batch       Batch?          @relation(fields: [batchId], references: [id])
+  userId      Int         // Quién hizo el movimiento (null si fue automático/RPA)
+  user        User?           @relation(fields: [userId], references: [id])
+  type        MovementType
+  quantity    Int
+  stockAfter  Int
+  reason      MovementReason?
+  description String?
+  createdAt   DateTime        @default(now())
+}
+
+enum MovementType {
+  IN
+  OUT
+  ADJUSTMENT
+}
+
+enum MovementReason {
+  SALE
+  RESTOCK
+  EXPIRED_DISCARD
+  DAMAGED
+  INVENTORY_COUNT
+  RETURN
+}
+
+// ------------------------------------------------------
+// 4. Productos en tendencia (detectados por la IA, aún no forman
+// parte del catálogo activo). Un ADMIN decide si se aprueban.
+// ------------------------------------------------------
+model TrendingProduct {
+  id             Int                 @id @default(autoincrement())
+  suggestedName  String              // Nombre del producto detectado (aún no existe en Product)
+  categoryId     Int
+  category       Category?           @relation(fields: [categoryId], references: [id])
+  trendScore     Float               // Puntaje de tendencia calculado por la IA (0 a 1, o el rango que definas)
+  source         String              // De dónde salió el dato: "redes sociales", "ventas competencia", dataset externo, etc.
+  detectedAt     DateTime            @default(now())
+  status         TrendingStatus      @default(PENDING)
+  reviewedById   Int?             // Admin que aprobó/rechazó la sugerencia
+  reviewedBy     User?               @relation(fields: [reviewedById], references: [id])
+  reviewedAt     DateTime?
+  linkedProductId Int?               @unique // Si se aprueba, referencia al Product ya creado en el catálogo
+  linkedProduct  Product?            @relation(fields: [linkedProductId], references: [id])
+  notes          String?
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+}
+
+enum TrendingStatus {
+  PENDING    // La IA lo detectó, esperando revisión de un admin
+  APPROVED   // Se aprobó y se creó/vinculó como Product real
+  REJECTED   // Un admin decidió no incorporarlo al catálogo
+}
+
+// ------------------------------------------------------
+// 5. Cola de reposición para el RPA
+// ------------------------------------------------------
+model PurchaseOrder {
+  id         Int         @id @default(autoincrement())
+  supplierId Int
+  supplier   Supplier    @relation(fields: [supplierId], references: [id])
+  status     OrderStatus @default(PENDING_RPA)
+  items      OrderItem[]
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+}
+
+model OrderItem {
+  id              Int           @id @default(autoincrement())
+  purchaseOrderId Int
+  order           PurchaseOrder @relation(fields: [purchaseOrderId], references: [id])
+  productId       Int
+  product         Product       @relation(fields: [productId], references: [id])
+  quantity        Int
+}
+
+enum OrderStatus {
+  PENDING_RPA   // El backend detectó stock bajo. El RPA debe leer esto.
+  PROCESSING    // El RPA está generando el PDF y enviando el correo.
+  SENT          // El RPA notificó al proveedor exitosamente.
+  DELIVERED     // La mercancía llegó y se hizo el movimiento "IN".
+  FAILED        // Error en la automatización.
+}
