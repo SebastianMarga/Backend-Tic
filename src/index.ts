@@ -2,12 +2,13 @@ import express from 'express';
 
 import authRoutes from './features/auth/auth.routes.js'
 import trendRoutes from './features/trends/trends.routes.js'
+import inventoryRoutes from './features/inventory/inventory.routes.js';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.use(express.json());
-
+app.use('/api/inventory', inventoryRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/trends', trendRoutes);
 
