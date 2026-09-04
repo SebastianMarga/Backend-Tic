@@ -16,10 +16,12 @@ export const saveTrendResults = async (products: any[]) => {
         products.map(product =>
             prisma.trendingProduct.create({
                 data: {
-                    suggestedName: product.name,
-                    trendScore: product.score,
-                    source: product.source,
-                    categoryId: product.categoryId
+                    suggestedName: product.suggestedName,
+                    notes: product.notes,
+                    urlProduct: product.urlProduct,
+                    urlImage: product.urlImage,
+                    suggestedPrice: product.suggestedPrice,
+                    hasStock: product.hasStock
                 }
             })
         )
