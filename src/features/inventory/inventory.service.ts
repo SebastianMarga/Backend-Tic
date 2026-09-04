@@ -35,3 +35,29 @@ export const analyzeInventoryIntent = async (
     chatCompletion.choices[0]?.message?.content || "{}",
   ) as RpaIntentResponse;
 };
+
+export const generateNaturalResponse = async (prompt: string, rpaData: any): Promise<string> => {
+  const chatCompletion = await groqClient.chat.completions.create({
+    model: "openai/gpt-oss-120b", 
+    messages: [
+      {
+        role: "system",
+        content: `Eres un asistente de ventas amigable y conversacional. Tu objetivo es leer los resultados de búsqueda y responder al usuario de forma cálida, fluida y directa.
+        
+        Reglas ESTRICTAS:
+        - Escribe en párrafos naturales. PROHIBIDO usar tablas (Markdown como |---|) o fichas técnicas robóticas.
+        - Usa viñetas simples (*) solo si necesitas listar 2 o 3 opciones.
+        - NUNCA inventes precios, stock ni modelos. Si el dato no está, di que no tienes esa información.
+        - Si te piden el más económico, revisa cuidadosamente todos los precios de la lista que recibas antes de responder.
+        - Nunca menciones que estás leyendo un JSON, una base de datos o un sistema automatizado.`
+      },
+      { 
+        role: "user", 
+        content: `Pregunta: "${prompt}"\n\nDatos reales: ${JSON.stringify(rpaData)}` 
+      }
+    ],
+    temperature: 0.2 // Reducimos la temperatura para que no invente datos
+  });
+
+  return chatCompletion.choices[0]?.message?.content || "Aquí tienes la información de tu búsqueda.";
+};
