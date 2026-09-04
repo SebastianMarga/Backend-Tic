@@ -1,6 +1,6 @@
 import { prisma } from '../../lib/prisma.js';
 
-const RPA_SERVICE_URL = process.env.RPA_SERVICE_URL || 'http://localhost:8000';
+const RPA_SERVICE_URL = process.env.RPA_SERVICE_URL;
 if (!RPA_SERVICE_URL) throw new Error('No se encuentra URL del RPA.')
 
 export const startRpaTask = async (keyword: string): Promise<void> => {

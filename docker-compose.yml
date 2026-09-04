@@ -9,7 +9,7 @@ services:
       POSTGRES_PASSWORD: root
       POSTGRES_DB: bd_inventario
     ports:
-      - "5432:5432"
+      - "5433:5432"
     volumes:
       - db_data:/var/lib/postgresql/data
     healthcheck:
@@ -19,7 +19,7 @@ services:
       retries: 5
 
   rpa-service:
-    build: ../RPA_Curso_TIC-s
+    image: lincolmvf/rpa-infotec-v1:latest
     container_name: rpa-service
     ports:
       - "3001:3001"
@@ -27,6 +27,7 @@ services:
 
   backend-service:
     image: lincolmvf/backend-tic-s:latest
+    #build: ./
     container_name: backend-service
     ports:
       - "3002:3002"
@@ -37,6 +38,16 @@ services:
         condition: service_healthy
       rpa-service:
         condition: service_started
+    restart: always
+
+  frontend-service:
+    image: lincolmvf/frontend-tic-s:latest
+    #build: ../Frontend-Tic
+    container_name: frontend-service
+    ports:
+      - "80:80"
+    depends_on:
+      - backend-service
     restart: always
 
 volumes:

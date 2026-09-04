@@ -5,6 +5,9 @@ import {
 } from "./inventory.service.js";
 import { saveTrendResults } from "../trends/trends.service.js";
 
+const RPA_SERVICE_URL = process.env.RPA_SERVICE_URL;
+if (!RPA_SERVICE_URL) throw new Error('No se encuentra URL del RPA.')
+
 export const processUserQuery = async (
   req: Request,
   res: Response,
@@ -19,10 +22,11 @@ export const processUserQuery = async (
     const aiAnalysis = await analyzeInventoryIntent(prompt);
     let rpaData = null;
     let respuestaFinal = aiAnalysis.mensajeParaUsuario;
+    let datosResumidos: any;
 
     if (aiAnalysis.requiereRpa && aiAnalysis.productoABuscar) {
       console.log(`[RPA] Buscando: ${aiAnalysis.productoABuscar}`);
-      const rpaApiUrl = "http://rpa-service:3001/api/buscar";
+      const rpaApiUrl = `${RPA_SERVICE_URL}buscar`;
 
       try {
         const rpaResponse = await fetch(rpaApiUrl, {
@@ -37,7 +41,7 @@ export const processUserQuery = async (
             "[RPA] ✅ Scraping completado. Resumiendo datos para la IA...",
           );
 
-          let datosResumidos: any = rpaData;
+          datosResumidos = rpaData;
 
           // 1. Verificamos que el JSON contenga la lista de "resultados"
           if (rpaData && Array.isArray(rpaData.resultados)) {
@@ -91,6 +95,7 @@ export const processUserQuery = async (
     // Devolvemos la estructura limpia al Frontend
     res.status(200).json({
       respuesta_ia: respuestaFinal,
+      productos: datosResumidos
     });
   } catch (error) {
     console.error("Error en controlador:", error);
