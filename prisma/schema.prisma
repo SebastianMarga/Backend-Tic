@@ -151,8 +151,8 @@ model TrendingProduct {
   suggestedName  String              // Nombre del producto detectado (aún no existe en Product)
   categoryId     Int?
   category       Category?           @relation(fields: [categoryId], references: [id])
-  trendScore     Float               // Puntaje de tendencia calculado por la IA (0 a 1, o el rango que definas)
-  source         String              // De dónde salió el dato: "redes sociales", "ventas competencia", dataset externo, etc.
+  trendScore     Float?               // Puntaje de tendencia calculado por la IA (0 a 1, o el rango que definas)
+  source         String?              // De dónde salió el dato: "redes sociales", "ventas competencia", dataset externo, etc.
   detectedAt     DateTime            @default(now())
   status         TrendingStatus      @default(PENDING)
   reviewedById   Int?             // Admin que aprobó/rechazó la sugerencia
