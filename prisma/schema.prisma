@@ -149,7 +149,7 @@ enum MovementReason {
 model TrendingProduct {
   id             Int                 @id @default(autoincrement())
   suggestedName  String              // Nombre del producto detectado (aún no existe en Product)
-  categoryId     Int
+  categoryId     Int?
   category       Category?           @relation(fields: [categoryId], references: [id])
   trendScore     Float               // Puntaje de tendencia calculado por la IA (0 a 1, o el rango que definas)
   source         String              // De dónde salió el dato: "redes sociales", "ventas competencia", dataset externo, etc.
@@ -200,3 +200,5 @@ enum OrderStatus {
   DELIVERED     // La mercancía llegó y se hizo el movimiento "IN".
   FAILED        // Error en la automatización.
 }
+
+model 
