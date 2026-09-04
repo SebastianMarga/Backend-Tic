@@ -200,5 +200,3 @@ enum OrderStatus {
   DELIVERED     // La mercancía llegó y se hizo el movimiento "IN".
   FAILED        // Error en la automatización.
 }
-
-model 
