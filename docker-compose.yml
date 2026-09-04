@@ -1,6 +1,23 @@
 name: proyecto-tics
 
 services:
+  db:
+    image: postgres:16-alpine
+    container_name: tic-db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: root
+      POSTGRES_DB: bd_inventario
+    ports:
+      - "5432:5432"
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
   rpa-service:
     build: ../RPA_Curso_TIC-s
     container_name: rpa-service
@@ -9,12 +26,18 @@ services:
     restart: always
 
   backend-service:
-    build: ../Backend-Tic
+    image: lincolmvf/backend-tic-s:latest
     container_name: backend-service
     ports:
       - "3002:3002"
     env_file:
       - .env
     depends_on:
-      - rpa-service
+      db:
+        condition: service_healthy
+      rpa-service:
+        condition: service_started
     restart: always
+
+volumes:
+  db_data:
