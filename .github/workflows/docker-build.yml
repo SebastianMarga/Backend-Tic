@@ -25,4 +25,6 @@ jobs:
           context: .
           push: true
           # IMPORTANTE: Cambia "tu_usuario_de_docker" por tu usuario REAL en Docker Hub en minúsculas
+          # IMPORTANTE: Cambia "tu_usuario_de_docker" por tu usuario REAL en Docker Hub en minúsculas
+          # IMPORTANTE: Cambia "tu_usuario_de_docker" por tu usuario REAL en Docker Hub en minúsculas
           tags: lincolmvf/backend-Tic-s:latest
