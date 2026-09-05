@@ -41,5 +41,25 @@ export const loginUser = async (data: LoginDTO) => {
         },
     });
 
-    return { user: { id: user.id, name: user.name, role: user.role }, accessToken, refreshToken };
+    return { user: { id: user.id, email: user.email, name: user.name, role: user.role }, accessToken, refreshToken };
+};
+
+export const refreshUserSession = async (currentRefreshToken: string) => {
+    const decoded = jwt.verify(currentRefreshToken, JWT_REFRESH_SECRET) as jwt.JwtPayload;
+
+    const user = await prisma.user.findUnique({ where: { id: decoded.id } });
+
+    if (!user || !user.isActive || user.refreshToken !== currentRefreshToken) {
+        throw new Error('Sesión inválida o revocada');
+    }
+
+    const newAccessToken = jwt.sign({ id: user.id, role: user.role }, JWT_SECRET, { expiresIn: '15m' });
+    const newRefreshToken = jwt.sign({ id: user.id }, JWT_REFRESH_SECRET, { expiresIn: '7d' });
+
+    await prisma.user.update({
+        where: { id: user.id },
+        data: { refreshToken: newRefreshToken }
+    });
+
+    return { newAccessToken, newRefreshToken };
 };

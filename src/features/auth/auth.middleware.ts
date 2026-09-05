@@ -15,16 +15,10 @@ export const verifyToken = (
   res: Response,
   next: NextFunction,
 ): void => {
-  const authHeader = req.headers.authorization;
+  const token = req.cookies.token;
 
-  if (!authHeader || !authHeader.startsWith("Bearer ")) {
-    res.status(401).json({ error: "Acceso denegado. Token no proporcionado." });
-    return;
-  }
-
-  const token = authHeader.split(" ")[1];
   if (!token) {
-    res.status(401).json({ error: "Acceso denegado. Token no proporcionado." });
+    res.status(401).json({ error: 'Acceso denegado. No hay sesión activa.' });
     return;
   }
 
@@ -36,7 +30,7 @@ export const verifyToken = (
     };
     next();
   } catch (error) {
-    res.status(401).json({ error: "Token inválido o expirado." });
+    res.status(401).json({ error: 'Sesión expirada o inválida.' });
   }
 };
 

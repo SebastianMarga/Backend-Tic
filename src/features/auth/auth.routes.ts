@@ -1,5 +1,5 @@
 import { Router, type Response } from "express";
-import { register, login } from "./auth.controller.js";
+import { register, login, logout, refreshSession } from "./auth.controller.js";
 import {
   verifyToken,
   requireAdmin,
@@ -10,6 +10,8 @@ const router = Router();
 
 router.post("/register", register);
 router.post("/login", login);
+router.post('/logout', logout);
+router.post('/refresh', refreshSession);
 
 // Ruta protegida de prueba
 router.get(
