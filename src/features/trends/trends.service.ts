@@ -1,4 +1,4 @@
-import { prisma } from '../../lib/prisma.js';
+import { prisma } from '../../lib/prisma/prisma.js';
 
 const RPA_SERVICE_URL = process.env.RPA_SERVICE_URL;
 if (!RPA_SERVICE_URL) throw new Error('No se encuentra URL del RPA.')

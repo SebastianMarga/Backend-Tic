@@ -1,14 +1,15 @@
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
-import { prisma } from '../../lib/prisma.js';
+import { prisma } from '../../lib/prisma/prisma.js';
 import type { RegisterDTO, LoginDTO } from './auth.dto.js';
+import { AppError } from '../../lib/errors/app-error.js';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'super_secret_key';
 const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET || 'super_refresh_secret_key';
 
 export const registerUser = async (data: RegisterDTO) => {
     const existingUser = await prisma.user.findUnique({ where: { email: data.email } });
-    if (existingUser) throw new Error('El correo ya está registrado');
+    if (existingUser) throw new AppError('El correo ya está registrado', 400);
 
     const hashedPassword = await bcrypt.hash(data.password, 10);
 
@@ -25,10 +26,10 @@ export const registerUser = async (data: RegisterDTO) => {
 
 export const loginUser = async (data: LoginDTO) => {
     const user = await prisma.user.findUnique({ where: { email: data.email } });
-    if (!user || !user.isActive) throw new Error('Email incorrecto o usuario inactivo');
+    if (!user || !user.isActive) throw new AppError('Email incorrecto o usuario inactivo', 400);
 
     const isPasswordValid = await bcrypt.compare(data.password, user.password);
-    if (!isPasswordValid) throw new Error('Credenciales inválidas');
+    if (!isPasswordValid) throw new AppError('Credenciales inválidas', 401);
 
     const accessToken = jwt.sign({ id: user.id, role: user.role }, JWT_SECRET, { expiresIn: '15m' });
     const refreshToken = jwt.sign({ id: user.id }, JWT_REFRESH_SECRET, { expiresIn: '7d' });
@@ -49,9 +50,7 @@ export const refreshUserSession = async (currentRefreshToken: string) => {
 
     const user = await prisma.user.findUnique({ where: { id: decoded.id } });
 
-    if (!user || !user.isActive || user.refreshToken !== currentRefreshToken) {
-        throw new Error('Sesión inválida o revocada');
-    }
+    if (!user || !user.isActive || user.refreshToken !== currentRefreshToken) throw new AppError('Sesión inválida o revocada.', 401);
 
     const newAccessToken = jwt.sign({ id: user.id, role: user.role }, JWT_SECRET, { expiresIn: '15m' });
     const newRefreshToken = jwt.sign({ id: user.id }, JWT_REFRESH_SECRET, { expiresIn: '7d' });
