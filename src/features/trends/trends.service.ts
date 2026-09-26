@@ -49,6 +49,14 @@ export const approveStatus = async (id: number) => {
             status: 'APPROVED',
         }
     })
+    let listProducts = [];
+    listProducts[0] = row.urlProduct;
+    const rpaResponse = await fetch(`${RPA_SERVICE_URL}comprar`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ productos: listProducts }),
+    });
+    console.log(rpaResponse)
 }
 
 export const rejectStatus = async (id: number) => {
