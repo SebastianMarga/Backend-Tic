@@ -8,6 +8,11 @@ export interface RpaIntentResponse {
   mensajeParaUsuario: string;
 }
 
+export const getDomainName = (url: string): string => {
+  const hostname = new URL(url).hostname.replace(/^www\./, "");
+  return hostname.split(".")[0] ?? "";
+}
+
 export const analyzeInventoryIntent = async (
   prompt: string,
 ): Promise<RpaIntentResponse> => {
@@ -38,7 +43,7 @@ export const analyzeInventoryIntent = async (
 
 export const generateNaturalResponse = async (prompt: string, rpaData: any): Promise<string> => {
   const chatCompletion = await groqClient.chat.completions.create({
-    model: "openai/gpt-oss-120b", 
+    model: "openai/gpt-oss-120b",
     messages: [
       {
         role: "system",
@@ -51,9 +56,9 @@ export const generateNaturalResponse = async (prompt: string, rpaData: any): Pro
         - Si te piden el más económico, revisa cuidadosamente todos los precios de la lista que recibas antes de responder.
         - Nunca menciones que estás leyendo un JSON, una base de datos o un sistema automatizado.`
       },
-      { 
-        role: "user", 
-        content: `Pregunta: "${prompt}"\n\nDatos reales: ${JSON.stringify(rpaData)}` 
+      {
+        role: "user",
+        content: `Pregunta: "${prompt}"\n\nDatos reales: ${JSON.stringify(rpaData)}`
       }
     ],
     temperature: 0.2 // Reducimos la temperatura para que no invente datos

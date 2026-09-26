@@ -1,3 +1,4 @@
+import { AppError } from '../../lib/errors/app-error.js';
 import { prisma } from '../../lib/prisma/prisma.js';
 
 const RPA_SERVICE_URL = process.env.RPA_SERVICE_URL;
@@ -21,7 +22,8 @@ export const saveTrendResults = async (products: any[]) => {
                     urlProduct: product.urlProduct,
                     urlImage: product.urlImage,
                     suggestedPrice: product.suggestedPrice,
-                    hasStock: product.hasStock
+                    hasStock: product.hasStock,
+                    source: product.source
                 }
             })
         )
@@ -29,3 +31,35 @@ export const saveTrendResults = async (products: any[]) => {
 
     return savedTrends;
 };
+
+export const getTrendProducts = async () => {
+    const trendProducts = await prisma.trendingProduct.findMany();
+    if (trendProducts.length === 0) throw new AppError('No se encontraron usuarios.', 404);
+    return trendProducts;
+}
+
+export const approveStatus = async (id: number) => {
+    const row = await prisma.trendingProduct.findUnique({
+        where: { id }
+    })
+    if (!row) throw new AppError('El producto sugerido no se encuentra registrado.', 404);
+    await prisma.trendingProduct.update({
+        where: { id },
+        data: {
+            status: 'APPROVED',
+        }
+    })
+}
+
+export const rejectStatus = async (id: number) => {
+    const row = await prisma.trendingProduct.findUnique({
+        where: { id }
+    })
+    if (!row) throw new AppError('El producto sugerido no se encuentra registrado.', 404);
+    await prisma.trendingProduct.update({
+        where: { id },
+        data: {
+            status: 'REJECTED',
+        }
+    })
+}

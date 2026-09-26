@@ -2,6 +2,7 @@ import type { Request, Response } from "express";
 import {
   analyzeInventoryIntent,
   generateNaturalResponse,
+  getDomainName
 } from "./inventory.service.js";
 import { saveTrendResults } from "../trends/trends.service.js";
 
@@ -53,6 +54,7 @@ export const processUserQuery = async (
               urlProduct: item.url_producto,
               urlImage: item.url_imagen,
               notes: item.especificaciones_crudas,
+              source: getDomainName(item.url_producto),
             }));
 
             // 3. Ordenamos matemáticamente de menor a mayor precio
