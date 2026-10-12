@@ -6,8 +6,8 @@ const router = Router();
 
 router.post('/scan', verifyToken, requireAdmin, triggerRpaScraping);
 router.get('/trend-products', verifyToken, requireAdmin, getAll);
-router.patch('/:id/approve', verifyToken, requireAdmin, approve);
-router.patch('/:id/reject', verifyToken, requireAdmin, reject);
+router.patch('/approve', verifyToken, requireAdmin, approve);
+router.patch('/reject', verifyToken, requireAdmin, reject);
 
 // Endpoint para RPA
 router.post('/results', receiveRpaResults);

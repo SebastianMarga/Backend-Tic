@@ -21,14 +21,18 @@ services:
   rpa-service:
     image: lincolmvf/rpa-infotec-v1:latest
     container_name: rpa-service
+    pull_policy: always
     ports:
       - "3001:3001"
+    env_file:
+      - .env
     restart: always
 
   backend-service:
     image: lincolmvf/backend-tic-s:latest
     #build: ./
     container_name: backend-service
+    pull_policy: always
     ports:
       - "3002:3002"
     env_file:
@@ -42,8 +46,12 @@ services:
 
   frontend-service:
     image: lincolmvf/frontend-tic-s:latest
-    #build: ../Frontend-Tic
+    # build: 
+    #   context: ../Frontend-Tic
+    #   args:
+    #     - VITE_API_URL=/api/
     container_name: frontend-service
+    pull_policy: always
     ports:
       - "80:80"
     depends_on:

@@ -39,10 +39,6 @@ export const requireAdmin = (
   res: Response,
   next: NextFunction,
 ): void => {
-  console.log(
-    "Verificando permisos de administrador para el usuario:",
-    req.user,
-  );
   if (!req.user || req.user.role !== "ADMIN") {
     res.status(403).json({
       error: "Acceso denegado. Se requieren permisos de administrador.",

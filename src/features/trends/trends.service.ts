@@ -38,19 +38,25 @@ export const getTrendProducts = async () => {
     return trendProducts;
 }
 
-export const approveStatus = async (id: number) => {
-    const row = await prisma.trendingProduct.findUnique({
-        where: { id }
+export const approveStatus = async (ids: number[]) => {
+    const listProducts = await prisma.$transaction(async tx => {
+        return Promise.all(
+            ids.map(async id => {
+                const row = await tx.trendingProduct.findUnique({
+                    where: { id }
+                })
+                if (!row) throw new AppError(`El producto sugerido con ID: ${id} no se encuentra registrado.`, 404);
+                await tx.trendingProduct.update({
+                    where: { id },
+                    data: {
+                        status: 'APPROVED',
+                    }
+                })
+                return row.urlProduct;
+            })
+        )
     })
-    if (!row) throw new AppError('El producto sugerido no se encuentra registrado.', 404);
-    await prisma.trendingProduct.update({
-        where: { id },
-        data: {
-            status: 'APPROVED',
-        }
-    })
-    let listProducts = [];
-    listProducts[0] = row.urlProduct;
+
     const rpaResponse = await fetch(`${RPA_SERVICE_URL}comprar`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -59,15 +65,22 @@ export const approveStatus = async (id: number) => {
     console.log(rpaResponse)
 }
 
-export const rejectStatus = async (id: number) => {
-    const row = await prisma.trendingProduct.findUnique({
-        where: { id }
+export const rejectStatus = async (ids: number[]) => {
+    await prisma.$transaction(async tx => {
+        await Promise.all(
+            ids.map(async id => {
+                const row = await tx.trendingProduct.findUnique({
+                    where: { id }
+                })
+                if (!row) throw new AppError(`El producto sugerido con ID: ${id} no se encuentra registrado.`, 404);
+                await tx.trendingProduct.update({
+                    where: { id },
+                    data: {
+                        status: 'REJECTED',
+                    }
+                })
+            })
+        )
     })
-    if (!row) throw new AppError('El producto sugerido no se encuentra registrado.', 404);
-    await prisma.trendingProduct.update({
-        where: { id },
-        data: {
-            status: 'REJECTED',
-        }
-    })
+    console.log("productos rechazados correctamente")
 }

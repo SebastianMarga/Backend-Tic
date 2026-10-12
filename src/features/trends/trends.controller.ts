@@ -44,19 +44,15 @@ export const getAll = async (req: Request, res: Response): Promise<void> => {
 }
 
 export const approve = async (req: Request, res: Response): Promise<void> => {
-    const { id } = req.params;
-    if (!id) throw new AppError('El ID es requerido.', 400);
-    const idTrend = Number(id)
-    if (isNaN(idTrend)) throw new AppError('El ID debe ser un número válido.', 400);
-    await trendsService.approveStatus(idTrend);
+    const { ids }: { ids: number[] } = req.body;
+    if (ids.length === 0) throw new AppError('El ID es requerido.', 400);
+    await trendsService.approveStatus(ids);
     res.status(204).send();
 }
 
 export const reject = async (req: Request, res: Response): Promise<void> => {
-    const { id } = req.params;
-    if (!id) throw new AppError('El ID es requerido.', 400);
-    const idTrend = Number(id)
-    if (isNaN(idTrend)) throw new AppError('El ID debe ser un número válido.', 400);
-    await trendsService.rejectStatus(idTrend);
+    const { ids }: { ids: number[] } = req.body;
+    if (ids.length === 0) throw new AppError('El ID es requerido.', 400);
+    await trendsService.rejectStatus(ids);
     res.status(204).send();
 }
