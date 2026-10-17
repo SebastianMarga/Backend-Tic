@@ -1,4 +1,5 @@
 import { getIO } from "../../lib/socket.js";
+import { prisma } from "../../lib/prisma/prisma.js";
 import { processInventoryPipeline, crearSugerenciaReabastecimiento } from "../inventory/inventory.service.js";
 
 // Memoria temporal para evitar que el sensor sature el bot RPA (Spam)
@@ -66,7 +67,19 @@ export const procesarAlertaStock = async (payload: any) => {
   const promptAutomatico = `ALERTA DE SENSOR: El stock físico de "${producto}" ha caído a ${stockFisico} unidades. Por favor, busca proveedores urgentemente y cotiza las mejores opciones para reabastecer.`;
 
   processInventoryPipeline(promptAutomatico, "IOT")
-    .then((resultado) => {
+    .then(async (resultado) => {
+      // Guardar la cotización en la línea del borrador: el admin la ve (y elige) al aprobar.
+      if (ordenSugerida && Array.isArray(resultado.productos)) {
+        try {
+          await prisma.orderItem.update({
+            where: { id: ordenSugerida.id },
+            data: { quotes: resultado.productos },
+          });
+        } catch (err) {
+          console.error(`[IoT] No se pudo guardar la cotización de ${producto}:`, err);
+        }
+      }
+
       const io = getIO();
       io.emit("alerta-stock", {
         tipo: "RESTOCK_ALERT", // <-- Etiqueta unificada con el type de la BD

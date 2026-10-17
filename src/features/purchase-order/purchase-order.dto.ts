@@ -5,6 +5,14 @@ export interface OrderItemInputDTO {
     quantity: number;
 }
 
+export interface ApproveRestockLineDTO {
+    itemId: number;
+    /** Cantidad a comprar que fija el admin al aprobar. */
+    quantity: number;
+    /** URL de la cotización elegida (debe ser una de las que trajo el RPA). */
+    selectedUrl?: string | undefined;
+}
+
 export interface OrderCreateDTO {
     supplierId: number;
     items: OrderItemInputDTO[];

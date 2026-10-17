@@ -208,25 +208,14 @@ export const crearSugerenciaReabastecimiento = async (
     return existingItem;
   }
 
-  // 4. Buscar si ya hay un borrador (DRAFT) de tipo RESTOCK_ALERT abierto para el proveedor
-  let draftOrder = await prisma.purchaseOrder.findFirst({
-    where: {
+  // 4. Una orden borrador por producto: así el admin aprueba o rechaza cada alerta por separado
+  const draftOrder = await prisma.purchaseOrder.create({
+    data: {
       supplierId: product.supplierId,
       status: "DRAFT",
-      type: "RESTOCK_ALERT",
+      type: "RESTOCK_ALERT", // <-- Diferenciador permanente de reabastecimiento
     },
   });
-
-  // Si no hay borrador para este proveedor, lo creamos asignando type: RESTOCK_ALERT
-  if (!draftOrder) {
-    draftOrder = await prisma.purchaseOrder.create({
-      data: {
-        supplierId: product.supplierId,
-        status: "DRAFT",
-        type: "RESTOCK_ALERT", // <-- Diferenciador permanente de reabastecimiento
-      },
-    });
-  }
 
   // 5. Insertar el producto en OrderItem
   const newOrderItem = await prisma.orderItem.create({
@@ -276,6 +265,9 @@ export const obtenerSugerenciasReabastecimiento = async () => {
     threshold: item.product.dynamicThreshold,
     supplierName: item.product.supplier.name,
     quantity: item.quantity,
+    optimalOrderQty: item.product.optimalOrderQty,
+    quotes: item.quotes ?? [], // Cotizaciones del RPA (vacío mientras el bot aún busca)
+    selectedUrl: item.selectedUrl,
     tipo: "RESTOCK_ALERT", // Etiqueta diferenciadora para las tarjetas en el Frontend
     createdAt: item.order.createdAt,
   }));

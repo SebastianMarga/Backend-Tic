@@ -201,6 +201,8 @@ model OrderItem {
   productId       Int
   product         Product       @relation(fields: [productId], references: [id])
   quantity        Int
+  quotes          Json?         // Cotizaciones que trajo el RPA para esta línea (top 5)
+  selectedUrl     String?       // Cotización que el admin eligió al aprobar
   @@unique([purchaseOrderId, productId])
 }
 

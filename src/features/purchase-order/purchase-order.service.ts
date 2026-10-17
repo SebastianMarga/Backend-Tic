@@ -3,7 +3,9 @@ import { AppError } from "../../lib/errors/app-error.js";
 import { prisma } from "../../lib/prisma/prisma.js";
 import { getIO } from "../../lib/socket.js";
 import { resolveExpirationDate } from "../batch/batch.service.js";
-import type { OrderCreateDTO, OrderFilters, OrderItemInputDTO, ReceiveOrderDTO } from "./purchase-order.dto.js";
+import type {
+    ApproveRestockLineDTO, OrderCreateDTO, OrderFilters, OrderItemInputDTO, ReceiveOrderDTO,
+} from "./purchase-order.dto.js";
 
 const orderInclude = {
     supplier: { select: { id: true, name: true, email: true } },
@@ -197,6 +199,82 @@ export const changeOrderStatus = async (id: number, target: OrderStatus) => {
 
 /** Botón "Comprar" del chat/web: DRAFT → PENDING_RPA. */
 export const confirmOrder = (id: number) => changeOrderStatus(id, "PENDING_RPA");
+
+/**
+ * Aprobación del admin sobre una alerta de reestock (orden RESTOCK_ALERT en DRAFT):
+ * fija cantidad y cotización elegida por línea, pasa a PENDING_RPA y le pide al RPA que compre.
+ * La respuesta es inmediata; la compra sigue en segundo plano (PROCESSING → SENT / FAILED).
+ */
+export const approveRestock = async (id: number, lines: ApproveRestockLineDTO[]) => {
+    const order = await findOrderOrFail(id);
+    assertDraft(order.status);
+    if (order.type !== "RESTOCK_ALERT") {
+        throw new AppError("Esta orden no es una alerta de reabastecimiento.", 400);
+    }
+
+    const byId = new Map(order.items.map((i) => [i.id, i]));
+    for (const line of lines) {
+        if (!byId.has(line.itemId)) throw new AppError(`La línea ${line.itemId} no pertenece a la orden ${id}.`, 404);
+    }
+
+    const urlFor = (itemId: number) =>
+        lines.find((l) => l.itemId === itemId)?.selectedUrl ?? byId.get(itemId)?.selectedUrl ?? null;
+
+    for (const item of order.items) {
+        const url = urlFor(item.id);
+        if (!url) throw new AppError(`Elige una cotización para: ${item.product.name}.`, 400);
+
+        // Solo se compra en URLs que realmente trajo el RPA
+        const quotes = Array.isArray(item.quotes) ? (item.quotes as Array<{ urlProduct?: string }>) : [];
+        if (!quotes.some((q) => q?.urlProduct === url)) {
+            throw new AppError(`La cotización elegida para ${item.product.name} no es una de las sugeridas.`, 400);
+        }
+    }
+
+    await prisma.$transaction(
+        lines.map((l) =>
+            prisma.orderItem.update({
+                where: { id: l.itemId },
+                data: { quantity: l.quantity, ...(l.selectedUrl ? { selectedUrl: l.selectedUrl } : {}) },
+            }),
+        ),
+    );
+
+    const confirmed = await changeOrderStatus(id, "PENDING_RPA");
+    void dispatchToRpa(id);
+    return confirmed;
+};
+
+/**
+ * Le pide al RPA que haga la compra (POST {RPA_SERVICE_URL}comprar) y refleja el resultado:
+ * PENDING_RPA → PROCESSING → SENT, o FAILED si algo falla. Al llegar a SENT, el modo demo
+ * (DEMO_AUTO_RECEIVE) recibe la mercancía y repone el stock del almacén.
+ */
+const dispatchToRpa = async (orderId: number) => {
+    try {
+        const order = await findOrderOrFail(orderId);
+        const productos = order.items.map((i) => i.selectedUrl).filter((u): u is string => !!u);
+        if (productos.length === 0) throw new Error("La orden no tiene URLs de compra.");
+
+        const rpaUrl = process.env.RPA_SERVICE_URL;
+        if (!rpaUrl) throw new Error("RPA_SERVICE_URL no está definida.");
+
+        await changeOrderStatus(orderId, "PROCESSING");
+
+        const res = await fetch(`${rpaUrl}comprar`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ productos }),
+        });
+        if (!res.ok) throw new Error(`El RPA respondió ${res.status}.`);
+
+        await changeOrderStatus(orderId, "SENT");
+        console.log(`[Orden #${orderId}] 🤖 Compra enviada por el RPA.`);
+    } catch (err) {
+        console.error(`[Orden #${orderId}] ❌ Falló la compra con el RPA:`, err);
+        await changeOrderStatus(orderId, "FAILED").catch(() => undefined);
+    }
+};
 
 /**
  * DEMO_AUTO_RECEIVE=true  → al pasar a SENT, la orden se recibe sola tras

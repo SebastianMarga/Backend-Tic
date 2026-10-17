@@ -2,7 +2,7 @@ import { Router } from "express";
 import { requireAdmin, verifyToken } from "../auth/auth.middleware.js";
 import { adminOrServiceKey } from "../auth/service-key.middleware.js";
 import {
-    addOrderItem, changeStatus, confirm, create, getAll, getById, receive, remove, removeOrderItem, updateOrderItem,
+    addOrderItem, approveRestockOrder, changeStatus, confirm, create, getAll, getById, receive, remove, removeOrderItem, updateOrderItem,
 } from "./purchase-order.controller.js";
 
 const router = Router();
@@ -20,6 +20,7 @@ router.delete("/:id/items/:itemId", verifyToken, requireAdmin, removeOrderItem);
 
 // Ciclo de vida
 router.post("/:id/confirm", verifyToken, requireAdmin, confirm);           // botón "Comprar": DRAFT → PENDING_RPA
+router.post("/:id/approve-restock", verifyToken, requireAdmin, approveRestockOrder); // el admin aprueba la alerta: DRAFT → PENDING_RPA + compra del RPA
 router.patch("/:id/status", adminOrServiceKey, changeStatus);              // el RPA reporta PROCESSING / SENT / FAILED
 router.post("/:id/receive", verifyToken, requireAdmin, receive);           // SENT → DELIVERED + stock + socket
 

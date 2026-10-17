@@ -5,9 +5,9 @@ import {
     asBody, optInt, optString, optDate, parseId, qEnum, qInt, reqEnum, reqInt,
 } from "../../lib/validation.js";
 import type { AuthRequest } from "../auth/auth.middleware.js";
-import type { OrderItemInputDTO, ReceiveItemDTO } from "./purchase-order.dto.js";
+import type { ApproveRestockLineDTO, OrderItemInputDTO, ReceiveItemDTO } from "./purchase-order.dto.js";
 import {
-    addItem, changeOrderStatus, confirmOrder, createOrder, deleteOrder, getOrderById, getOrders, receiveOrder,
+    addItem, approveRestock, changeOrderStatus, confirmOrder, createOrder, deleteOrder, getOrderById, getOrders, receiveOrder,
     removeItem, updateItem,
 } from "./purchase-order.service.js";
 
@@ -78,6 +78,24 @@ export const removeOrderItem = async (req: AuthRequest, res: Response): Promise<
 
 export const confirm = async (req: AuthRequest, res: Response): Promise<void> => {
     res.status(200).json(await confirmOrder(parseId(req.params.id, "ID de orden")));
+};
+
+/** El admin aprueba una alerta de reestock: fija cantidad + cotización y dispara la compra del RPA. */
+export const approveRestockOrder = async (req: AuthRequest, res: Response): Promise<void> => {
+    const id = parseId(req.params.id, "ID de orden");
+    const body = asBody(req.body);
+    if (!Array.isArray(body.items) || body.items.length === 0) {
+        throw new AppError("items debe ser una lista con al menos una línea.", 400);
+    }
+    const lines: ApproveRestockLineDTO[] = body.items.map((raw: unknown) => {
+        const line = asBody(raw);
+        return {
+            itemId: reqInt(line, "itemId", "La línea", 1),
+            quantity: reqInt(line, "quantity", "La cantidad", 1),
+            selectedUrl: optString(line, "selectedUrl", "La cotización"),
+        };
+    });
+    res.status(200).json(await approveRestock(id, lines));
 };
 
 export const changeStatus = async (req: AuthRequest, res: Response): Promise<void> => {
