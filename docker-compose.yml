@@ -58,5 +58,15 @@ services:
       - backend-service
     restart: always
 
+  estanteria-virtual:
+    image: lincolmvf/estanteria-virtual:latest
+    container_name: estanteria-virtual
+    pull_policy: always
+    ports:
+      - "4000:80"
+    depends_on:
+      - backend-service
+    restart: always
+
 volumes:
   db_data:
