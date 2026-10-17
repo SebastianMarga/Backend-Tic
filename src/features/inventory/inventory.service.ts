@@ -1,11 +1,20 @@
 import Groq from "groq-sdk";
+import { saveTrendResults } from "../trends/trends.service.js";
 
 const groqClient = new Groq({ apiKey: process.env.GROQ_API_KEY });
+
+const RPA_SERVICE_URL = process.env.RPA_SERVICE_URL;
+if (!RPA_SERVICE_URL) throw new Error("No se encuentra URL del RPA.");
 
 export interface RpaIntentResponse {
   requiereRpa: boolean;
   productoABuscar: string | null; // Nuevo campo para enviar a FastAPI
   mensajeParaUsuario: string;
+}
+
+export interface InventoryProcessResult {
+  respuesta_ia: string;
+  productos: any;
 }
 
 export const getDomainName = (url: string): string => {
@@ -65,4 +74,70 @@ export const generateNaturalResponse = async (prompt: string, rpaData: any): Pro
   });
 
   return chatCompletion.choices[0]?.message?.content || "Aquí tienes la información de tu búsqueda.";
+};
+
+export const processInventoryPipeline = async (
+  prompt: string,
+  origen: "CHAT" | "IOT" = "CHAT",
+): Promise<InventoryProcessResult> => {
+  console.log(`[Pipeline] Procesando solicitud desde origen: ${origen}`);
+
+  const aiAnalysis = await analyzeInventoryIntent(prompt);
+  let rpaData: any = null;
+  let respuestaFinal = aiAnalysis.mensajeParaUsuario;
+  let datosResumidos: any = null;
+
+  if (aiAnalysis.requiereRpa && aiAnalysis.productoABuscar) {
+    console.log(`[RPA] Buscando: ${aiAnalysis.productoABuscar}`);
+    const rpaApiUrl = `${RPA_SERVICE_URL}buscar`;
+
+    try {
+      const rpaResponse = await fetch(rpaApiUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ producto: aiAnalysis.productoABuscar }),
+      });
+
+      if (rpaResponse.ok) {
+        rpaData = await rpaResponse.json();
+        console.log("[RPA] ✅ Scraping completado. Resumiendo datos...");
+
+        if (rpaData && Array.isArray(rpaData.resultados)) {
+          const listaMapeada = rpaData.resultados.map((item: any) => ({
+            suggestedName: item.producto_evaluado,
+            suggestedPrice: item.precio_soles,
+            hasStock: item.tiene_stock_inmediato,
+            urlProduct: item.url_producto,
+            urlImage: item.url_imagen,
+            notes: item.especificaciones_crudas,
+            source: getDomainName(item.url_producto),
+          }));
+
+          listaMapeada.sort((a: any, b: any) => a.suggestedPrice - b.suggestedPrice);
+          datosResumidos = listaMapeada.slice(0, 5);
+        } else {
+          const stringData = JSON.stringify(rpaData);
+          datosResumidos =
+            stringData.length > 2500
+              ? stringData.substring(0, 2500) + "... [datos truncados]"
+              : stringData;
+        }
+
+        const resultados = await saveTrendResults(datosResumidos);
+        console.log("[RPA] Resultados guardados en la BD:", resultados);
+
+        respuestaFinal = await generateNaturalResponse(prompt, datosResumidos);
+      } else {
+        respuestaFinal = "Hubo un problema consultando el catálogo en este momento.";
+      }
+    } catch (error) {
+      console.error("[RPA] Error conectando con FastAPI:", error);
+      respuestaFinal = "El sistema de búsqueda no está disponible en este momento.";
+    }
+  }
+
+  return {
+    respuesta_ia: respuestaFinal,
+    productos: datosResumidos,
+  };
 };
