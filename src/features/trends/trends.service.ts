@@ -33,10 +33,8 @@ export const saveTrendResults = async (products: any[]) => {
 };
 
 export const getTrendProducts = async () => {
-    const trendProducts = await prisma.trendingProduct.findMany();
-    if (trendProducts.length === 0) throw new AppError('No se encontraron usuarios.', 404);
-    return trendProducts;
-}
+    return prisma.trendingProduct.findMany();
+};
 
 export const approveStatus = async (ids: number[]) => {
     const listProducts = await prisma.$transaction(async tx => {
