@@ -182,7 +182,7 @@ model PurchaseOrder {
   id         Int         @id @default(autoincrement())
   supplierId Int
   supplier   Supplier    @relation(fields: [supplierId], references: [id])
-  status     OrderStatus @default(PENDING_RPA)
+  status     OrderStatus @default(DRAFT)
   items      OrderItem[]
   createdAt  DateTime    @default(now())
   updatedAt  DateTime    @updatedAt
@@ -195,9 +195,11 @@ model OrderItem {
   productId       Int
   product         Product       @relation(fields: [productId], references: [id])
   quantity        Int
+  @@unique([purchaseOrderId, productId])
 }
 
 enum OrderStatus {
+  DRAFT         // <-- Estado "Sugerencia de Reabastecimiento" (Visible en web para el Admin)
   PENDING_RPA   // El backend detectó stock bajo. El RPA debe leer esto.
   PROCESSING    // El RPA está generando el PDF y enviando el correo.
   SENT          // El RPA notificó al proveedor exitosamente.
