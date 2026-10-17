@@ -1,6 +1,6 @@
 import Groq from "groq-sdk";
 import { saveTrendResults } from "../trends/trends.service.js";
-import {prisma} from "../../lib/prisma/prisma.js";
+import { prisma } from "../../lib/prisma/prisma.js";
 
 const groqClient = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
@@ -21,7 +21,7 @@ export interface InventoryProcessResult {
 export const getDomainName = (url: string): string => {
   const hostname = new URL(url).hostname.replace(/^www\./, "");
   return hostname.split(".")[0] ?? "";
-}
+};
 
 export const analyzeInventoryIntent = async (
   prompt: string,
@@ -51,7 +51,10 @@ export const analyzeInventoryIntent = async (
   ) as RpaIntentResponse;
 };
 
-export const generateNaturalResponse = async (prompt: string, rpaData: any): Promise<string> => {
+export const generateNaturalResponse = async (
+  prompt: string,
+  rpaData: any,
+): Promise<string> => {
   const chatCompletion = await groqClient.chat.completions.create({
     model: "openai/gpt-oss-120b",
     messages: [
@@ -64,20 +67,21 @@ export const generateNaturalResponse = async (prompt: string, rpaData: any): Pro
         - Usa viñetas simples (*) solo si necesitas listar 2 o 3 opciones.
         - NUNCA inventes precios, stock ni modelos. Si el dato no está, di que no tienes esa información.
         - Si te piden el más económico, revisa cuidadosamente todos los precios de la lista que recibas antes de responder.
-        - Nunca menciones que estás leyendo un JSON, una base de datos o un sistema automatizado.`
+        - Nunca menciones que estás leyendo un JSON, una base de datos o un sistema automatizado.`,
       },
       {
         role: "user",
-        content: `Pregunta: "${prompt}"\n\nDatos reales: ${JSON.stringify(rpaData)}`
-      }
+        content: `Pregunta: "${prompt}"\n\nDatos reales: ${JSON.stringify(rpaData)}`,
+      },
     ],
-    temperature: 0.2 // Reducimos la temperatura para que no invente datos
+    temperature: 0.2, // Reducimos la temperatura para que no invente datos
   });
 
-  return chatCompletion.choices[0]?.message?.content || "Aquí tienes la información de tu búsqueda.";
+  return (
+    chatCompletion.choices[0]?.message?.content ||
+    "Aquí tienes la información de tu búsqueda."
+  );
 };
-
-// En inventory.service.ts (dentro de processInventoryPipeline)
 
 export const processInventoryPipeline = async (
   prompt: string,
@@ -114,21 +118,28 @@ export const processInventoryPipeline = async (
             urlImage: item.url_imagen,
             notes: item.especificaciones_crudas,
             source: getDomainName(item.url_producto),
-            // Etiqueta útil para que el frontend diferencie en memoria de dónde salió
-            originType: origen === "CHAT" ? "TENDENCIA_IA" : "REABASTECIMIENTO",
+            originType: origen === "CHAT" ? "TENDENCIA_IA" : "RESTOCK_ALERT",
           }));
 
-          listaMapeada.sort((a: any, b: any) => a.suggestedPrice - b.suggestedPrice);
+          listaMapeada.sort(
+            (a: any, b: any) => a.suggestedPrice - b.suggestedPrice,
+          );
           datosResumidos = listaMapeada.slice(0, 5);
 
           // 🔥 SEPARACIÓN CLAVE: Solo guardamos en TrendingProduct si viene del CHAT
           if (origen === "CHAT") {
-            // Quitamos originType antes de guardar si no existe esa columna en Prisma
-            const datosParaPrisma = datosResumidos.map(({ originType, ...rest }: any) => rest);
+            const datosParaPrisma = datosResumidos.map(
+              ({ originType, ...rest }: any) => rest,
+            );
             const resultados = await saveTrendResults(datosParaPrisma);
-            console.log("[RPA - CHAT] ✅ Tendencias guardadas en TrendingProduct:", resultados);
+            console.log(
+              "[RPA - CHAT] ✅ Tendencias guardadas en TrendingProduct:",
+              resultados,
+            );
           } else {
-            console.log("[RPA - IOT] 📦 Cotización de reabastecimiento lista (no se guarda en TrendingProduct).");
+            console.log(
+              "[RPA - IOT] 📦 Cotización de reabastecimiento lista (no se guarda en TrendingProduct).",
+            );
           }
         } else {
           const stringData = JSON.stringify(rpaData);
@@ -140,11 +151,13 @@ export const processInventoryPipeline = async (
 
         respuestaFinal = await generateNaturalResponse(prompt, datosResumidos);
       } else {
-        respuestaFinal = "Hubo un problema consultando el catálogo en este momento.";
+        respuestaFinal =
+          "Hubo un problema consultando el catálogo en este momento.";
       }
     } catch (error) {
       console.error("[RPA] Error conectando con FastAPI:", error);
-      respuestaFinal = "El sistema de búsqueda no está disponible en este momento.";
+      respuestaFinal =
+        "El sistema de búsqueda no está disponible en este momento.";
     }
   }
 
@@ -156,7 +169,7 @@ export const processInventoryPipeline = async (
 
 export const crearSugerenciaReabastecimiento = async (
   nombreProducto: string,
-  stockFisico: number
+  stockFisico: number,
 ) => {
   // 1. Buscar el producto en tu catálogo real
   const product = await prisma.product.findFirst({
@@ -166,7 +179,9 @@ export const crearSugerenciaReabastecimiento = async (
   });
 
   if (!product) {
-    console.warn(`[IoT -> BD] El producto "${nombreProducto}" no existe en la tabla Product.`);
+    console.warn(
+      `[IoT -> BD] El producto "${nombreProducto}" no existe en la tabla Product.`,
+    );
     return null;
   }
 
@@ -176,7 +191,7 @@ export const crearSugerenciaReabastecimiento = async (
     data: { currentStock: stockFisico },
   });
 
-  // 3. Verificar si ya existe una sugerencia u orden activa para este producto (evitar spam en BD)
+  // 3. Verificar si ya existe una sugerencia u orden activa para este producto
   const existingItem = await prisma.orderItem.findFirst({
     where: {
       productId: product.id,
@@ -187,34 +202,38 @@ export const crearSugerenciaReabastecimiento = async (
   });
 
   if (existingItem) {
-    console.log(`[IoT -> BD] "${product.name}" ya tiene una sugerencia de reabastecimiento activa.`);
+    console.log(
+      `[IoT -> BD] "${product.name}" ya tiene una sugerencia de reabastecimiento activa.`,
+    );
     return existingItem;
   }
 
-  // 4. Buscar si ya hay un borrador (DRAFT) abierto para el proveedor de este producto
+  // 4. Buscar si ya hay un borrador (DRAFT) de tipo RESTOCK_ALERT abierto para el proveedor
   let draftOrder = await prisma.purchaseOrder.findFirst({
     where: {
       supplierId: product.supplierId,
       status: "DRAFT",
+      type: "RESTOCK_ALERT",
     },
   });
 
-  // Si no hay borrador para este proveedor, lo creamos
+  // Si no hay borrador para este proveedor, lo creamos asignando type: RESTOCK_ALERT
   if (!draftOrder) {
     draftOrder = await prisma.purchaseOrder.create({
       data: {
         supplierId: product.supplierId,
         status: "DRAFT",
+        type: "RESTOCK_ALERT", // <-- Diferenciador permanente de reabastecimiento
       },
     });
   }
 
-  // 5. Insertar el producto en OrderItem (quantity va null o no se envía porque es solo sugerencia inicial)
+  // 5. Insertar el producto en OrderItem
   const newOrderItem = await prisma.orderItem.create({
     data: {
       purchaseOrderId: draftOrder.id,
       productId: product.id,
-      quantity: 0, // El Admin definirá la cantidad luego
+      quantity: 0,
     },
     include: {
       product: { include: { supplier: true } },
@@ -222,14 +241,19 @@ export const crearSugerenciaReabastecimiento = async (
     },
   });
 
-  console.log(`[IoT -> BD] ✅ Sugerencia de REABASTECIMIENTO creada para: ${product.name}`);
+  console.log(
+    `[IoT -> BD] ✅ Sugerencia de REABASTECIMIENTO creada para: ${product.name}`,
+  );
   return newOrderItem;
 };
-// Al final de inventory.service.ts
+
 export const obtenerSugerenciasReabastecimiento = async () => {
   const items = await prisma.orderItem.findMany({
     where: {
-      order: { status: "DRAFT" },
+      order: {
+        status: "DRAFT",
+        type: "RESTOCK_ALERT", // <-- Filtramos solo las que son alertas de reabastecimiento IoT
+      },
     },
     include: {
       product: {
@@ -251,8 +275,8 @@ export const obtenerSugerenciasReabastecimiento = async () => {
     currentStock: item.product.currentStock,
     threshold: item.product.dynamicThreshold,
     supplierName: item.product.supplier.name,
-    quantity: item.quantity, // null hasta que el Admin decida cuánto pedir
-    tipo: "REABASTECIMIENTO", // Etiqueta diferenciadora para tus tarjetas en el Frontend
+    quantity: item.quantity,
+    tipo: "RESTOCK_ALERT", // Etiqueta diferenciadora para las tarjetas en el Frontend
     createdAt: item.order.createdAt,
   }));
 };

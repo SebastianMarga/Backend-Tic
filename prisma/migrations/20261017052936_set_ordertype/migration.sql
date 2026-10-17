@@ -1,0 +1,2 @@
+-- CreateEnum
+CREATE TYPE "OrderType" AS ENUM ('RESTOCK_ALERT', 'MANUAL');

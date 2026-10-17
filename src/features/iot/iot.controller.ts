@@ -15,7 +15,7 @@ export const handleStockAlert = async (
     const resultado = await procesarAlertaStock(req.body);
 
     res.status(resultado.status).json({
-      tipo: "REABASTECIMIENTO", // Etiqueta diferenciadora
+      tipo: "RESTOCK_ALERT", // <-- Etiqueta unificada y consistente con el backend
       message: resultado.message,
       ordenBorrador: resultado.ordenBorrador ?? null,
     });

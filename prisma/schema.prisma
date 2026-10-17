@@ -183,9 +183,15 @@ model PurchaseOrder {
   supplierId Int
   supplier   Supplier    @relation(fields: [supplierId], references: [id])
   status     OrderStatus @default(DRAFT)
+  type         OrderType   @default(RESTOCK_ALERT) // RESTOCK_ALERT o MANUAL
   items      OrderItem[]
   createdAt  DateTime    @default(now())
   updatedAt  DateTime    @updatedAt
+}
+
+enum OrderType {
+  RESTOCK_ALERT // Nació del sensor IoT / Stock bajo
+  MANUAL        // Creada manualmente por un administrador
 }
 
 model OrderItem {
