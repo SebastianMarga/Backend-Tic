@@ -93,7 +93,7 @@ export const processInventoryPipeline = async (
   let rpaData: any = null;
   let respuestaFinal = aiAnalysis.mensajeParaUsuario;
   let datosResumidos: any = null;
-
+  console.log("aiAnalysis: ", aiAnalysis)
   if (aiAnalysis.requiereRpa && aiAnalysis.productoABuscar) {
     console.log(`[RPA] Buscando: ${aiAnalysis.productoABuscar}`);
     const rpaApiUrl = `${RPA_SERVICE_URL}buscar`;
